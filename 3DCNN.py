@@ -179,7 +179,7 @@ sess = tf.InteractiveSession(config=config)
 session = keras.backend.get_session()
 init = tf.global_variables_initializer()
 sess.run(init)       
-#開始訓練
+# start training
 history = PredictModel.fit(train_data, train_ans,
           batch_size=BATCH_SIZE,
           epochs=ITERATIONS,
@@ -197,3 +197,7 @@ ResultCNN = PredictModel.predict(test_data)  #8982*1*50*50 --> 998*9*50*50
 Test = int(ResultCNN.shape[0]/each_size)
 Result=np.reshape(ResultCNN, (Test*each_size,lenth,size1,size2))
 Result_A = list(Result_A)
+# adjust the size to 998*5*50*50
+Result_A = Result_A[0:Test,:,:,:] 
+Result_A = np.array(Result_A)
+Result_A = np.reshape(Result_A, (Test,lenth,size1,size2))
