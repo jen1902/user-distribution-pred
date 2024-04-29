@@ -139,6 +139,14 @@ data_overall = np.array(data_temp)
 
 data_overall = np.random.permutation(data_four)
 data_overall_list = list(data_overall)
+# data as input
+data_overall_list = np.array(data_overall_list)
+data_overall_list = np.reshape(data_overall_list, (data_overall_list.shape[0]*each_size,lenth,size1,size2,1))
+data_overall_list = list(data_overall_list)
+# data as answer
+data_overall_ans = data_overall[:,:,lenth:lenth*2,:,:]
+data_overall_ans = np.reshape(data_overall_ans, (data_overall_ans.shape[0]*each_size,lenth,size1,size2,1))
+data_overall_ans = list(data_overall_ans)
 
 
 ## Data variale
@@ -195,7 +203,9 @@ history = PredictModel.fit(train_data, train_ans,
 
 ResultCNN = PredictModel.predict(test_data)  #8982*1*50*50 --> 998*9*50*50
 Test = int(ResultCNN.shape[0]/each_size)
+
 Result=np.reshape(ResultCNN, (Test*each_size,lenth,size1,size2))
+
 Result_A = list(Result_A)
 # adjust the size to 998*5*50*50
 Result_A = Result_A[0:Test,:,:,:] 
