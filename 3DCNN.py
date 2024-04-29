@@ -1,4 +1,4 @@
-
+# -*- coding: utf-8 -*-
 ## Import function needed
 import tensorflow as tf
 import keras.backend as K  #use tensorflow as calculation
@@ -6,7 +6,7 @@ import numpy as np
 import h5py
 import scipy.io as sio 
 
-from keras.layers import Activation, Concatenate, Lambda, Input, Dense, BatchNormalization, Dropout, Reshape, Conv3D, Conv2D, add, LeakyReLU, PReLU, MaxoutDense, Flatten, ReLU
+from keras.layers import Activation, Concatenate, Lambda, Input, Dense, BatchNormalization, TimeDistributed, Dropout, Reshape, LSTM, Conv3D, Conv2D, add, LeakyReLU, PReLU, MaxoutDense, Flatten, ReLU
 from keras.models import Model, model_from_json, Sequential  
 from keras import regularizers, optimizers
 from keras.regularizers import l2
@@ -36,25 +36,37 @@ time_len = 21
 def extract_(in_,idx):
     return in_[idx,:,:,:]
 
-def UEPred_network(Input_1,num_unit):       
+def Pred_network(Input_1,num_unit):       
     
     def add_common_layers(y):
         y = BatchNormalization()(y)
         y = PReLU()(y)
         return y
     
-    def residual_block(y):       
-        x = Conv2D(64, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+    def residual_block(y):
+        shortcut = y         
+#        x = Conv2D(64, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+#        x = add_common_layers(x)
+#        x = Conv2D(32, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+#        x = add_common_layers(x)
+#        x = Conv2D(16*lenth, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+#        x = add_common_layers(x)
+        x = Conv3D(8, kernel_size=(3, 3, 3), padding='same')(y)
         x = add_common_layers(x)
-        x = Conv2D(32, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+        x = Conv3D(4, kernel_size=(3, 3, 3), padding='same')(x)
         x = add_common_layers(x)
-        x = Conv2D(16*lenth, kernel_size=(4, 4), padding='same', data_format='channels_first')(y)
+        x = Conv3D(2, kernel_size=(3, 3, 3), padding='same')(x)
         x = add_common_layers(x)
-
-        g = PReLU()(g)
-        x = Flatten()(g)
-        x = Dense(1536,activation='relu')(x)
-        x = Dense(1024,activation='relu')(x)
+        x = Conv3D(1, kernel_size=(3, 3, 3), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = TimeDistributed(Flatten())(x) # Flatten the output for each time step
+        x = LSTM(units=64)(x) 
+        x = BatchNormalization()(x)
+        g = add([shortcut, x])
+#        g = PReLU()(g)
+#        x = Flatten()(g)
+#        x = Dense(1536,activation='relu')(x)
+#        x = Dense(1024,activation='relu')(x)
         return g            
     
     # Two CNN model with relu
@@ -79,7 +91,7 @@ def R_loss(true,pred):
 
 adam = optimizers.Adam(lr=0.001)
 InInput = Input(shape=(lenth,size1,size1,1))  # without batchsize: 3*50*50
-Output = UEPred_network(InInput,num_unit)
+Output = Pred_network(InInput,num_unit)
 PredictModel = Model(inputs=InInput, outputs= Output)
 PredictModel.compile(optimizer=adam,
                     loss=[R_loss],
@@ -89,40 +101,53 @@ print(PredictModel.summary())
 
 
 ## LOAD DATA INTO PYTHON
-mat_6 = sio.loadmat('UEgrid50_non_6_0715.mat') #200*(21*16)*50*50
-GridUE_6 = mat_6['UEgrid50_non_6_0715'] 
-mat_7 = sio.loadmat('UEgrid50_non_7_0715.mat') #200*(21*16)*50*50
-GridUE_7 = mat_7['UEgrid50_non_7_0715'] 
-mat_8 = sio.loadmat('UEgrid50_non_8_0715.mat') #200*(21*16)*50*50
-GridUE_8 = mat_8['UEgrid50_non_8_0715'] 
-mat_9 = sio.loadmat('UEgrid50_non_9_0715.mat') #200*(21*16)*50*50
-GridUE_9 = mat_9['UEgrid50_non_9_0715'] 
+mat_1 = sio.loadmat('UEgrid50_non_1.mat') #200*(21*16)*50*50
+GridUE_1 = mat_1['UEgrid50_non_1'] 
+mat_2 = sio.loadmat('UEgrid50_non_2.mat') #200*(21*16)*50*50
+GridUE_2 = mat_2['UEgrid50_non_2'] 
+mat_3 = sio.loadmat('UEgrid50_non_3.mat') #200*(21*16)*50*50
+GridUE_3 = mat_3['UEgrid50_non_3'] 
+mat_4 = sio.loadmat('UEgrid50_non_4.mat') #200*(21*16)*50*50
+GridUE_4 = mat_4['UEgrid50_non_4'] 
+mat_5 = sio.loadmat('UEgrid50_non_5.mat') #200*(21*16)*50*50
+GridUE_5 = mat_5['UEgrid50_non_5'] 
 
-data_orgall = np.concatenate([GridUE_1,GridUE_2,GridUE_3,GridUE_4,GridUE_5,GridUE_6,GridUE_7,GridUE_8,GridUE_9],axis = 0)
-data_all = np.reshape(data_all_temp, (data_all_temp.shape[0],each_size,size1,size2))
+
+#data_orgall = np.concatenate([GridUE_1,GridUE_2,GridUE_3,GridUE_4,GridUE_5,GridUE_6,GridUE_7,GridUE_8,GridUE_9],axis = 0)
+data_orgall = np.concatenate([GridUE_1,GridUE_2,GridUE_3,GridUE_4,GridUE_5],axis = 0)
+data_all = np.reshape(data_orgall, (data_orgall.shape[0]*time_len,each_size,1,size1,size2))
+#data_all = np.reshape(data_all_temp, (data_all_temp.shape[0],each_size,size1,size2))
 
 ## Preprocessing data 3 time slot
-index = 0
-data_temp = []
-data_tempcon = []
+index = 0;
+data_temp = [];
+data_tempcon = [];
 lenn = int(data_all.shape[0])-15
 while index <=lenn:
     if (index+1)%time_len  == 0:
         index = index + 1
+    elif (index+2)%time_len  == 0:
+        index = index + 1 
+    elif (index+3)%time_len  == 0:
+        index = index + 1 
+    elif (index+4)%time_len  == 0:
+        index = index + 1 
     elif (index+5)%time_len  == 0:
         index = index + 1 
-    elif (index+6)%time_len  == 0:
-        index = index + 1 
-    elif (index+7)%time_len  == 0:
-        index = index + 1 
-    elif (index+8)%time_len  == 0:
-        index = index + 1 
-    elif (index+9)%time_len  == 0:
-        index = index + 1    
-    elif (index+10)%time_len  == 0:
-        index = index + 1    
-    elif (index+11)%time_len  == 0:
-        index = index + 1    
+#    elif (index+5)%time_len  == 0:
+#        index = index + 1 
+#    elif (index+6)%time_len  == 0:
+#        index = index + 1 
+#    elif (index+7)%time_len  == 0:
+#        index = index + 1 
+#    elif (index+8)%time_len  == 0:
+#        index = index + 1 
+#    elif (index+9)%time_len  == 0:
+#        index = index + 1    
+#    elif (index+10)%time_len  == 0:
+#        index = index + 1    
+#    elif (index+11)%time_len  == 0:
+#        index = index + 1    
     else:
         data_1 = data_all[index,:,:,:,:]
         data_2 = data_all[index+1,:,:,:,:]
@@ -137,24 +162,16 @@ while index <=lenn:
         index = index + 1
 data_overall = np.array(data_temp)
 
-data_overall = np.random.permutation(data_four)
-data_overall_list = list(data_overall)
-# data as input
-data_overall_list = np.array(data_overall_list)
-data_overall_list = np.reshape(data_overall_list, (data_overall_list.shape[0]*each_size,lenth,size1,size2,1))
-data_overall_list = list(data_overall_list)
-# data as answer
-data_overall_ans = data_overall[:,:,lenth:lenth*2,:,:]
-data_overall_ans = np.reshape(data_overall_ans, (data_overall_ans.shape[0]*each_size,lenth,size1,size2,1))
-data_overall_ans = list(data_overall_ans)
+#data_overall = np.random.permutation(data_four)
+#data_overall_list = list(data_overall )
 
 
 ## Data variale
-number_train = round(0.6 * data_overall.shape[0])
+number_train = round(0.6 * data_overall.shape[0]) 
 number_val = round(0.2 * data_overall.shape[0])
 number_test = round(0.2 * data_overall.shape[0])
 train_min = 0
-train_max = int(number_train) - 1
+train_max = int(number_train) -1
 val_min = int(number_train)
 val_max = int(number_train)+int(number_val)-1
 test_min = int(number_train)+int(number_val)
@@ -184,10 +201,10 @@ test_ans_A = list(test_ans_A)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.InteractiveSession(config=config)
-session = keras.backend.get_session()
+#session = keras.backend.get_session()
 init = tf.global_variables_initializer()
 sess.run(init)       
-# start training
+#training
 history = PredictModel.fit(train_data, train_ans,
           batch_size=BATCH_SIZE,
           epochs=ITERATIONS,
@@ -195,19 +212,25 @@ history = PredictModel.fit(train_data, train_ans,
           validation_data= (val_data, val_ans)
           )
 
-#          shuffle = True validation_data=(x_trainval, y_trainval),
-#accum_loss.append(loss)
-##validation_data=(x_val, y_val),
-#cpu_start = time.clock()  
-#Component.load_weights('channelsfirst.h5')
+
 
 ResultCNN = PredictModel.predict(test_data)  #8982*1*50*50 --> 998*9*50*50
 Test = int(ResultCNN.shape[0]/each_size)
-
 Result=np.reshape(ResultCNN, (Test*each_size,lenth,size1,size2))
-
+Result_A=Result[:,lenth-1,:,:]
 Result_A = list(Result_A)
-# adjust the size to 998*5*50*50
-Result_A = Result_A[0:Test,:,:,:] 
-Result_A = np.array(Result_A)
-Result_A = np.reshape(Result_A, (Test,lenth,size1,size2))
+#test= np.reshape(test_ans, (test_ans.shape[0], 50, 50))
+#ResultCNN = np.reshape(ResultCNN, (999, 9, 50, 50))
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'val'], loc='upper left')
+plt.show()
+
+import scipy.io as io
+io.savemat('CNNans.mat',{'CNNans':test_ans})
+io.savemat('InputCNN.mat',{'InputCNN':test_data})
+io.savemat('ResultCNN.mat',{'ResultCNN':Result})
+PredictModel.save_weights('CNN_weights.h5')
